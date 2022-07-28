@@ -53,7 +53,7 @@ func UnZip(zip_file_name, folder_path string) (err error) {
 
 	var wg sync.WaitGroup
 	p := 0
-	pool := len(fr.Reader.File)
+	pool := 100
 
 	// 提取文件
 	for _, obj := range fr.Reader.File {
