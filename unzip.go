@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sync"
 )
 
 /*
@@ -34,46 +35,59 @@ func UnZip(zip_file_name, folder_path string) (err error) {
 		panic(err)
 	}
 	defer fr.Close()
-	//r.reader.file 是一个集合，里面包括了压缩包里面的所有文件
-	for _, file := range fr.Reader.File {
 
-		//判断文件该目录文件是否为文件夹
-		if file.FileInfo().IsDir() {
-			log.Println("mkdir:", path.Join(folder_path, file.Name))
-			if err := os.MkdirAll(path.Join(folder_path, file.Name), 0644); err != nil {
-				fmt.Println(err)
+	// 创建文件夹
+	for _, v := range fr.Reader.File {
+		if v.FileInfo().IsDir() {
+			if err := os.MkdirAll(path.Join(folder_path, v.Name), 0644); err != nil {
+				log.Println("unzip", err)
 			}
-			continue
 		}
 
 		// 某些情况下, fileinfo 并没有文件夹标识, 所以要根据文件实际的目录创建文件夹
-		dir, _ := filepath.Abs(path.Join(folder_path, filepath.Dir(file.Name)))
+		dir, _ := filepath.Abs(path.Join(folder_path, filepath.Dir(v.Name)))
 		if err := os.MkdirAll(dir, 0644); err != nil {
-			log.Println("mkdir:", dir)
+			log.Println("unzip", err)
 		}
-
-		//为文件时，打开文件
-		r, err := file.Open()
-
-		//文件为空的时候，打印错误
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-		//这里在控制台输出文件的文件名及路径
-		fmt.Println("unzip: ", file.Name)
-
-		//在对应的目录中创建相同的文件
-		NewFile, err := os.Create(path.Join(folder_path, file.Name))
-		if err != nil {
-			fmt.Println("create error:", err)
-			continue
-		}
-		//将内容复制
-		io.Copy(NewFile, r)
-		//关闭文件
-		NewFile.Close()
-		r.Close()
 	}
+
+	var wg sync.WaitGroup
+	wg.Add(len(fr.Reader.File))
+
+	// 提取文件
+	for _, obj := range fr.Reader.File {
+
+		go func(file *z.File) {
+
+			defer wg.Done()
+
+			if file.FileInfo().IsDir() {
+				return
+			}
+
+			r, err := file.Open()
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			defer r.Close()
+
+			log.Println("unzip: ", file.Name)
+
+			f, err := os.Create(path.Join(folder_path, file.Name))
+			if err != nil {
+				log.Println("unzip create file error:", err)
+				return
+			}
+			defer f.Close()
+
+			io.Copy(f, r)
+
+		}(obj)
+
+	}
+
+	wg.Wait()
+
 	return nil
 }
