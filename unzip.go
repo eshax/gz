@@ -52,10 +52,16 @@ func UnZip(zip_file_name, folder_path string) (err error) {
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(len(fr.Reader.File))
+	p := 0
+	pool := len(fr.Reader.File)
 
 	// 提取文件
 	for _, obj := range fr.Reader.File {
+
+		// log.Println("unzip: ", i, obj.Name)
+
+		wg.Add(1)
+		p++
 
 		go func(file *z.File) {
 
@@ -72,8 +78,6 @@ func UnZip(zip_file_name, folder_path string) (err error) {
 			}
 			defer r.Close()
 
-			log.Println("unzip: ", file.Name)
-
 			f, err := os.Create(path.Join(folder_path, file.Name))
 			if err != nil {
 				log.Println("unzip create file error:", err)
@@ -84,6 +88,11 @@ func UnZip(zip_file_name, folder_path string) (err error) {
 			io.Copy(f, r)
 
 		}(obj)
+
+		if p == pool {
+			wg.Wait()
+			p = 0
+		}
 
 	}
 

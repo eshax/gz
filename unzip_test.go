@@ -9,7 +9,7 @@ func Test_unzip(t *testing.T) {
 
 	log.Println()
 
-	UnZip("dist/2022-07-22-101209.zip", "dist/2022-07-22-101209")
+	UnZip("dist/2022-07-27-210547.zip", "dist/2022-07-27-210547")
 
 	log.Println()
 }
